@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONORUS Pixel Lab - 동아리 소노루스 전시관</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Pixel Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Pixel Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DungGeunMo&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pixelBg: '#0b0c10',
+                        pixelCard: '#1f2833',
+                        neonBlue: '#00f0ff',
+                        neonPink: '#ff007f',
+                        neonPurple: '#b026ff',
+                        neonGreen: '#39ff14',
+                    },
+                    fontFamily: {
+                        pixel: ['"Press Start 2P"', '"DungGeunMo"', 'cursive'],
+                        korean: ['"DungGeunMo"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            font-family: 'DungGeunMo', monospace;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* 픽셀 테두리 효과 */
+        .pixel-border {
+            box-shadow: 
+                -4px 0 0 0 #00f0ff,
+                4px 0 0 0 #00f0ff,
+                0 -4px 0 0 #00f0ff,
+                0 4px 0 0 #00f0ff;
+        }
+
+        .pixel-border-pink {
+            box-shadow: 
+                -4px 0 0 0 #ff007f,
+                4px 0 0 0 #ff007f,
+                0 -4px 0 0 #ff007f,
+                0 4px 0 0 #ff007f;
+        }
+
+        .pixel-box {
+            border: 4px solid #1f2833;
+            outline: 4px solid #00f0ff;
+            background: rgba(15, 15, 26, 0.9);
+        }
+
+        /* 네온 글로우 효과 */
+        .glow-blue {
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.8), 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        .glow-pink {
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.8), 0 0 20px rgba(255, 0, 127, 0.4);
+        }
+
+        /* 캔버스 렌더링 최적화 (픽셀 깨짐 방지) */
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* 스크롤바 디자인 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0c10;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #b026ff;
+            border-radius: 0px;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-2 md:p-4 bg-pixelBg">
+
+    <!-- 상단 헤더 -->
+    <header class="w-full max-w-5xl flex flex-col sm:flex-row justify-between items-center p-4 my-2 border-b-4 border-neonPurple bg-opacity-40 bg-black backdrop-blur-md rounded-lg gap-4">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl text-neonPink animate-bounce"><i class="fa-solid fa-gamepad"></i></span>
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold font-pixel tracking-wider text-neonBlue glow-blue">SONORUS</h1>
+                <p class="text-xs text-neonPink mt-1 font-korean">✦ 픽셀 융합 실험실 동아리 '소노루스' ✦</p>
+            </div>
+        </div>
+        
+        <!-- 컨트롤 팁 & 버튼 -->
+        <div class="flex items-center gap-3">
+            <div class="hidden md:flex flex-col text-right text-xs text-gray-300 font-korean">
+                <span>[이동] Arrow / WASD</span>
+                <span>[상호작용] E 키 또는 클릭</span>
+            </div>
+            <button id="missionBtn" onclick="toggleMissionModal()" class="px-3 py-2 bg-neonPink hover:bg-pink-600 text-black font-bold text-xs uppercase tracking-wider rounded transition-all duration-150 transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,0,127,0.5)]">
+                <i class="fa-solid fa-envelope mr-1"></i> 미션 확인 (<span id="missionBadge">1</span>)
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 게임 메인 컨테이너 -->
+    <main class="w-full max-w-5xl relative flex flex-col items-center my-auto">
+        
+        <!-- 위치 상태바 -->
+        <div class="w-full flex justify-between items-center mb-2 px-2 text-xs sm:text-sm">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded-full bg-neonBlue animate-ping"></span>
+                <span class="text-neonBlue font-bold" id="currentZoneText">SCIENCE & TECH LAB</span>
+            </div>
+            <div class="text-gray-400">
+                탐색 완료: <span id="visitedCount" class="text-neonGreen font-bold">0</span> / <span id="totalCount">6</span>
+            </div>
+        </div>
+
+        <!-- 게임 캔버스 영역 -->
+        <div class="relative w-full aspect-[16/9] max-h-[550px] bg-black rounded-lg overflow-hidden border-4 border-neonBlue shadow-[0_0_25px_rgba(0,240,255,0.2)]">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- 터치/모바일 조작용 UI (화면 가상 패드) -->
+            <div class="absolute bottom-3 left-3 md:hidden grid grid-cols-3 gap-1 w-32 h-32 opacity-80 z-10">
+                <div></div>
+                <button ontouchstart="handleTouchStart('up')" ontouchend="handleTouchEnd('up')" class="bg-gray-800 border-2 border-neonBlue text-neonBlue text-xl rounded flex items-center justify-center active:bg-neonBlue active:text-black">▲</button>
+                <div></div>
+                <button ontouchstart="handleTouchStart('left')" ontouchend="handleTouchEnd('left')" class="bg-gray-800 border-2 border-neonBlue text-neonBlue text-xl rounded flex items-center justify-center active:bg-neonBlue active:text-black">◀</button>
+                <button ontouchstart="handleActionBtn()" class="bg-neonPink border-2 border-white text-black font-bold text-xs rounded flex items-center justify-center active:bg-white">E</button>
+                <button ontouchstart="handleTouchStart('right')" ontouchend="handleTouchEnd('right')" class="bg-gray-800 border-2 border-neonBlue text-neonBlue text-xl rounded flex items-center justify-center active:bg-neonBlue active:text-black">▶</button>
+                <div></div>
+                <button ontouchstart="handleTouchStart('down')" ontouchend="handleTouchEnd('down')" class="bg-gray-800 border-2 border-neonBlue text-neonBlue text-xl rounded flex items-center justify-center active:bg-neonBlue active:text-black">▼</button>
+                <div></div>
+            </div>
+
+            <!-- 안내 팝업 메시지 (상호작용 유도) -->
+            <div id="interactionPrompt" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 border-2 border-neonGreen px-4 py-2 rounded-full text-neonGreen font-korean text-xs sm:text-sm hidden animate-bounce z-10">
+                [E] 키를 눌러 작품/안내 보기
+            </div>
+        </div>
+
+        <!-- 하단 바로가기 패널 -->
+        <div class="w-full grid grid-cols-2 gap-3 mt-3">
+            <button onclick="teleportToZone('science')" class="py-2 px-3 bg-pixelCard border-2 border-neonBlue hover:bg-opacity-80 text-neonBlue text-xs sm:text-sm font-bold rounded flex items-center justify-center gap-2 transition-all">
+                <i class="fa-solid fa-flask"></i> 이과 구역 (Science Lab)
+            </button>
+            <button onclick="teleportToZone('arts')" class="py-2 px-3 bg-pixelCard border-2 border-neonPink hover:bg-opacity-80 text-neonPink text-xs sm:text-sm font-bold rounded flex items-center justify-center gap-2 transition-all">
+                <i class="fa-solid fa-palette"></i> 문과 구역 (Arts Studio)
+            </button>
+        </div>
+    </main>
+
+    <!-- 시스템 미션 팝업 모달 -->
+    <div id="missionModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-pixelBg border-4 border-neonPink p-6 max-w-md w-full rounded-lg shadow-[0_0_30px_rgba(255,0,127,0.6)] relative animate-pulse-border">
+            <button onclick="toggleMissionModal()" class="absolute top-2 right-3 text-gray-400 hover:text-white text-xl">&times;</button>
+            
+            <div class="flex items-center gap-3 mb-4 border-b-2 border-gray-700 pb-3">
+                <span class="text-neonPink text-2xl"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <h3 class="text-lg font-pixel text-neonPink glow-pink">SYSTEM MISSION</h3>
+            </div>
+
+            <div class="space-y-3 font-korean text-sm leading-relaxed">
+                <p class="text-neonBlue font-bold">[ 긴급 미션 : 소노루스 탐사 ]</p>
+                <p class="text-gray-300">
+                    환영합니다, 연구원님! 동아리 <span class="text-neonPink font-bold">소노루스(SONORUS)</span>의 픽셀 실험실에 접근했습니다.
+                </p>
+                <div class="bg-black p-3 rounded border border-gray-800 text-xs text-gray-300 space-y-1">
+                    <p>🎯 <span class="text-neonGreen">목표:</span> 좌/우 구역의 전시물 6개를 모두 확인하세요.</p>
+                    <p>🧪 <span class="text-neonBlue">왼쪽 구역:</span> 이과 메인 프로젝트 (AI, 로봇, 웹3)</p>
+                    <p>🎨 <span class="text-neonPink">오른쪽 구역:</span> 문과 메인 프로젝트 (소설, 디자인, 마케팅)</p>
+                </div>
+            </div>
+
+            <button onclick="toggleMissionModal()" class="w-full mt-5 py-3 bg-neonPink hover:bg-pink-600 text-black font-bold text-sm font-pixel rounded transition-transform active:scale-95">
+                미션 수락 & 시작하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 작품 상세보기 모달 -->
+    <div id="projectModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-pixelBg border-4 border-neonBlue p-6 max-w-lg w-full rounded-lg shadow-[0_0_30px_rgba(0,240,255,0.5)] relative">
+            <button onclick="closeProjectModal()" class="absolute top-2 right-3 text-gray-400 hover:text-white text-xl">&times;</button>
+            
+            <div class="flex items-center gap-3 mb-4 border-b-2 border-gray-700 pb-3">
+                <span id="modalIcon" class="text-neonBlue text-3xl"></span>
+                <div>
+                    <span id="modalCategory" class="text-xs px-2 py-0.5 rounded bg-gray-800 text-neonGreen font-korean">카테고리</span>
+                    <h3 id="modalTitle" class="text-lg sm:text-xl font-bold font-korean text-white mt-1">작품 제목</h3>
+                </div>
+            </div>
+
+            <div class="space-y-4 font-korean text-sm">
+                <div id="modalImage" class="w-full h-40 bg-black rounded border border-gray-800 flex items-center justify-center text-4xl overflow-hidden relative">
+                    <!-- 스크린샷 픽셀 박스 또는 아이콘 연출 -->
+                </div>
+                <p id="modalDesc" class="text-gray-300 leading-relaxed bg-black bg-opacity-50 p-3 rounded border border-gray-800">
+                    작품 설명이 이곳에 표시됩니다.
+                </p>
+                <div class="flex justify-between items-center text-xs text-gray-400 pt-2 border-t border-gray-800">
+                    <span>제작팀: <strong id="modalAuthor" class="text-neonPink">소노루스 개발팀</strong></span>
+                    <span id="modalStatus" class="text-neonGreen">★ 완료됨</span>
+                </div>
+            </div>
+
+            <button onclick="closeProjectModal()" class="w-full mt-5 py-2.5 bg-neonBlue hover:bg-cyan-500 text-black font-bold text-sm font-pixel rounded transition-all">
+                확인 (닫기)
+            </button>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="w-full max-w-5xl text-center py-3 my-2 text-xs text-gray-500 font-korean border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <p>© 2026 동아리 소노루스 (SONORUS). All rights reserved.</p>
+        <p class="text-neonPurple">Pixel Art Interactive Web Experience</p>
+    </footer>
+
+    <!-- 자바스크립트 로직 (게임을 위한 캔버스 애니메이션 & 컨트롤) -->
+    <script>
+        // --- 게임 및 데이터 설정 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 캔버스 해상도 고정 (16:9 비율)
+        const CANVAS_WIDTH = 960;
+        const CANVAS_HEIGHT = 540;
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // 플레이어 캐릭터 객체
+        const player = {
+            x: CANVAS_WIDTH / 2 - 16,
+            y: CANVAS_HEIGHT / 2 + 50,
+            width: 32,
+            height: 32,
+            speed: 4,
+            dx: 0,
+            dy: 0,
+            color: '#39ff14',
+            direction: 'down',
+            animFrame: 0
+        };
+
+        // 입력 키 상태
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false
+        };
+
+        // 방문한 오브젝트 아이디 기록
+        const visitedObjects = new Set();
+
+        // 전시용 프로젝트 데이터 목록 (총 6개: 이과 3, 문과 3)
+        const interactiveObjects = [
+            // 이과 구역 (Science & Tech) - X: 50~400
+            {
+                id: 'sc1',
+                x: 120, y: 150, width: 60, height: 60,
+                zone: 'science',
+                title: 'AI 스마트 방범 시스템',
+                category: '이과 - AI/Computer',
+                icon: 'fa-brain',
+                color: '#00f0ff',
+                desc: '딥러닝 기반 이미지 인식 기술을 활용하여 실시간으로 이상 행동을 감지하고 알림을 주는 소노루스 이과팀의 인공지능 연구 결과물입니다.',
+                author: '소노루스 AI랩'
+            },
+            {
+                id: 'sc2',
+                x: 250, y: 150, width: 60, height: 60,
+                zone: 'science',
+                title: '자율주행 미니 탐사 로봇',
+                category: '이과 - Robotics',
+                icon: 'fa-robot',
+                color: '#00f0ff',
+                desc: 'LiDAR 센서와 아두이노를 연결하여 스스로 障害物을 피하고 지도(SLAM)를 그리는 자율주행 소형 메카트로닉스 프로젝트입니다.',
+                author: '로보틱스 파트'
+            },
+            {
+                id: 'sc3',
+                x: 180, y: 360, width: 60, height: 60,
+                zone: 'science',
+                title: '양자 암호 시뮬레이터',
+                category: '이과 - Physics/Web3',
+                icon: 'fa-atom',
+                color: '#00f0ff',
+                desc: '양자키 분배(QKD) 알고리즘의 원리를 웹 인터랙티브 패널로 시각화하여 누구나 쉽게 보안 구조를 이해할 수 있게 만든 웹 시뮬레이터입니다.',
+                author: '퀀텀 연구팀'
+            },
+
+            // 문과 구역 (Arts & Humanities) - X: 560~900
+            {
+                id: 'ar1',
+                x: 650, y: 150, width: 60, height: 60,
+                zone: 'arts',
+                title: '디스토피아 SF 인터랙티브 소설',
+                category: '문과 - 문학/콘텐츠',
+                icon: 'fa-book-open',
+                color: '#ff007f',
+                desc: '2090년 인공지능이 지배하는 가상 도시를 배경으로 선택지에 따라 결말이 달라지는 키치 감성의 픽셀 비주얼 노벨 소설 프로젝트입니다.',
+                author: '소노루스 문학부'
+            },
+            {
+                id: 'ar2',
+                x: 780, y: 150, width: 60, height: 60,
+                zone: 'arts',
+                title: '네온 픽셀 아트 굿즈 브랜딩',
+                category: '문과 - 디자인/마케팅',
+                icon: 'fa-paint-brush',
+                color: '#ff007f',
+                desc: '동아리 시그니처 캐릭터를 활용한 키치한 스티커, 포스터, 아크릴 키링 디자인 및 브랜드 팝업스토어 기획안입니다.',
+                author: '브랜드 디자인팀'
+            },
+            {
+                id: 'ar3',
+                x: 720, y: 360, width: 60, height: 60,
+                zone: 'arts',
+                title: '청소년 심리 융합 철학 팟캐스트',
+                category: '문과 - 심리/미디어',
+                icon: 'fa-podcast',
+                color: '#ff007f',
+                desc: '현대 사회에서 기술과 인간의 관계를 픽셀 테마와 결합하여 고찰한 오디오 미디어 에세이 및 팟캐스트 시리즈입니다.',
+                author: '미디어 철학회'
+            }
+        ];
+
+        let activeObject = null; // 현재 접근한 오브젝트
+
+        // --- 이벤트 리스너 (키보드 조작) ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+            }
+            if (e.key.toLowerCase() === 'e' || e.key === ' ') {
+                handleInteraction();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+
+        // 캔버스 클릭 시 이동 또는 상호작용
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+            const clickY = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+
+            // 오브젝트를 직접 클릭했을 경우
+            interactiveObjects.forEach(obj => {
+                if (clickX >= obj.x && clickX <= obj.x + obj.width &&
+                    clickY >= obj.y && clickY <= obj.y + obj.height) {
+                    openProjectModal(obj);
+                }
+            });
+        });
+
+        // 가상 모바일 패드 컨트롤
+        function handleTouchStart(dir) {
+            if (dir === 'up') keys.ArrowUp = true;
+            if (dir === 'down') keys.ArrowDown = true;
+            if (dir === 'left') keys.ArrowLeft = true;
+            if (dir === 'right') keys.ArrowRight = true;
+        }
+
+        function handleTouchEnd(dir) {
+            if (dir === 'up') keys.ArrowUp = false;
+            if (dir === 'down') keys.ArrowDown = false;
+            if (dir === 'left') keys.ArrowLeft = false;
+            if (dir === 'right') keys.ArrowRight = false;
+        }
+
+        function handleActionBtn() {
+            handleInteraction();
+        }
+
+        // --- 핵심 위치 업데이트 및 게임 루프 ---
+        function updatePlayer() {
+            player.dx = 0;
+            player.dy = 0;
+
+            if (keys.ArrowUp || keys.w) player.dy = -player.speed;
+            if (keys.ArrowDown || keys.s) player.dy = player.speed;
+            if (keys.ArrowLeft || keys.a) player.dx = -player.speed;
+            if (keys.ArrowRight || keys.d) player.dx = player.speed;
+
+            // 이동 위치 적용 및 경계 체크
+            let nextX = player.x + player.dx;
+            let nextY = player.y + player.dy;
+
+            // 벽 경계 충돌 (상하좌우 제한)
+            if (nextX >= 40 && nextX <= CANVAS_WIDTH - 40 - player.width) {
+                player.x = nextX;
+            }
+            if (nextY >= 100 && nextY <= CANVAS_HEIGHT - 60 - player.height) {
+                player.y = nextY;
+            }
+
+            // 구역 감지 (중앙 통로 x=480 기준)
+            const zoneText = document.getElementById('currentZoneText');
+            if (player.x < CANVAS_WIDTH / 2) {
+                zoneText.innerText = "SCIENCE & TECH LAB (이과 구역)";
+                zoneText.className = "text-neonBlue font-bold";
+            } else {
+                zoneText.innerText = "ARTS & HUMANITIES STUDIO (문과 구역)";
+                zoneText.className = "text-neonPink font-bold";
+            }
+
+            // 상호작용 가능한 오브젝트 감지 (거리 측정)
+            activeObject = null;
+            let near = false;
+
+            interactiveObjects.forEach(obj => {
+                const centerX = obj.x + obj.width / 2;
+                const centerY = obj.y + obj.height / 2;
+                const pCenterX = player.x + player.width / 2;
+                const pCenterY = player.y + player.height / 2;
+
+                const dist = Math.hypot(centerX - pCenterX, centerY - pCenterY);
+                if (dist < 60) {
+                    activeObject = obj;
+                    near = true;
+                }
+            });
+
+            const prompt = document.getElementById('interactionPrompt');
+            if (near) {
+                prompt.classList.remove('hidden');
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        // 상호작용 처리
+        function handleInteraction() {
+            if (activeObject) {
+                openProjectModal(activeObject);
+            }
+        }
+
+        // --- 캔버스 그리기 (픽셀 그래픽 렌더링) ---
+        function drawScene() {
+            // 1. 전체 배경 (어두운 실험실)
+            ctx.fillStyle = '#0b0c10';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 2. 바닥 그리드 및 구역 구분 (이과: 푸른색, 문과: 핑크/보라)
+            // 좌측 (이과 구역 바닥)
+            ctx.fillStyle = '#121926';
+            ctx.fillRect(20, 80, CANVAS_WIDTH / 2 - 20, CANVAS_HEIGHT - 120);
+
+            // 우측 (문과 구역 바닥)
+            ctx.fillStyle = '#211224';
+            ctx.fillRect(CANVAS_WIDTH / 2, 80, CANVAS_WIDTH / 2 - 20, CANVAS_HEIGHT - 120);
+
+            // 바닥 픽셀 그리드선
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 2;
+            for (let x = 20; x < CANVAS_WIDTH - 20; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 80);
+                ctx.lineTo(x, CANVAS_HEIGHT - 40);
+                ctx.stroke();
+            }
+
+            // 구역 구분 경계 네온 라인 (중앙 통로)
+            ctx.strokeStyle = '#b026ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.setLineDash([8, 8]);
+            ctx.moveTo(CANVAS_WIDTH / 2, 80);
+            ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
+            ctx.stroke();
+            ctx.setLineDash([]); // 복구
+
+            // 3. 구역 타이틀 타이포그래피 (픽셀 스타일)
+            ctx.font = '20px "DungGeunMo"';
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillText('🧪 SCIENCE & TECH LAB', 80, 115);
+
+            ctx.fillStyle = '#ff007f';
+            ctx.fillText('🎨 ARTS & HUMANITIES STUDIO', 560, 115);
+
+            // 4. 전시용 전시대/오브젝트 그리기
+            interactiveObjects.forEach(obj => {
+                const isVisited = visitedObjects.has(obj.id);
+
+                // 전시대 페데스탈 (픽셀 스타일 Box)
+                ctx.fillStyle = '#1f2833';
+                ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+
+                // 외각 테두리 (네온 컬러)
+                ctx.strokeStyle = obj.color;
+                ctx.lineWidth = isVisited ? 2 : 4;
+                ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+
+                // 방문 완료 표시 아이콘/빛
+                if (isVisited) {
+                    ctx.fillStyle = '#39ff14';
+                    ctx.fillRect(obj.x + obj.width - 12, obj.y + 4, 8, 8); // 완료 점
+                }
+
+                // 전시 아이템 심볼 (픽셀 모형)
+                ctx.fillStyle = obj.color;
+                ctx.fillRect(obj.x + 18, obj.y + 15, 24, 24);
+
+                // 반짝임 애니메이션 연출
+                const time = Date.now() * 0.003;
+                const floatOffset = Math.sin(time + obj.x) * 3;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(obj.x + 26, obj.y + 20 + floatOffset, 8, 8);
+
+                // 라벨 텍스트
+                ctx.font = '12px "DungGeunMo"';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.fillText(obj.title.substring(0, 8) + '..', obj.x + obj.width / 2, obj.y + obj.height + 18);
+                ctx.textAlign = 'left';
+            });
+
+            // 5. 플레이어 캐릭터 그리기 (귀여운 픽셀 아바타)
+            drawPixelPlayer(player.x, player.y, player.color);
+
+            // 6. 상호작용 가이드 말풍선
+            if (activeObject) {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(player.x - 10, player.y - 35, 52, 22);
+                ctx.strokeStyle = '#39ff14';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(player.x - 10, player.y - 35, 52, 22);
+
+                ctx.font = '12px "DungGeunMo"';
+                ctx.fillStyle = '#39ff14';
+                ctx.fillText('PRESS [E]', player.x - 6, player.y - 20);
+            }
+        }
+
+        // 귀여운 픽셀 캐릭터 그리기 함수
+        function drawPixelPlayer(x, y, color) {
+            // 머리 (가발/헤어)
+            ctx.fillStyle = '#ff007f';
+            ctx.fillRect(x + 6, y + 2, 20, 10);
+
+            // 얼굴
+            ctx.fillStyle = '#ffe0bd';
+            ctx.fillRect(x + 6, y + 8, 20, 10);
+
+            // 눈
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x + 10, y + 11, 3, 3);
+            ctx.fillRect(x + 19, y + 11, 3, 3);
+
+            // 몸통 (실험실 가운)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x + 8, y + 18, 16, 10);
+
+            // 넥타이/포인트
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(x + 15, y + 18, 2, 8);
+
+            // 다리/발
+            ctx.fillStyle = '#1f2833';
+            ctx.fillRect(x + 8, y + 28, 6, 4);
+            ctx.fillRect(x + 18, y + 28, 6, 4);
+        }
+
+        // 메인 루프
+        function gameLoop() {
+            updatePlayer();
+            drawScene();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- 모달 및 인터랙션 제어 ---
+        function toggleMissionModal() {
+            const modal = document.getElementById('missionModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function openProjectModal(obj) {
+            visitedObjects.add(obj.id);
+            document.getElementById('visitedCount').innerText = visitedObjects.size;
+
+            // 미션 뱃지 업데이트
+            if (visitedObjects.size >= 6) {
+                document.getElementById('missionBadge').innerText = "완료!";
+                document.getElementById('missionBadge').className = "text-neonGreen font-bold";
+            }
+
+            document.getElementById('modalCategory').innerText = obj.category;
+            document.getElementById('modalTitle').innerText = obj.title;
+            document.getElementById('modalDesc').innerText = obj.desc;
+            document.getElementById('modalAuthor').innerText = obj.author;
+            document.getElementById('modalIcon').className = `fa-solid ${obj.icon}`;
+            document.getElementById('modalIcon').style.color = obj.color;
+
+            // 작품 가상 스크린샷 픽셀 연출
+            const imgBox = document.getElementById('modalImage');
+            imgBox.innerHTML = `<i class="fa-solid ${obj.icon} text-6xl" style="color: ${obj.color}"></i>
+            <span class="absolute bottom-2 right-2 text-xs text-gray-500 font-pixel">SONORUS_LAB_FILE_${obj.id}.DAT</span>`;
+
+            document.getElementById('projectModal').classList.remove('hidden');
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.add('hidden');
+        }
+
+        // 구역 순간이동 버튼
+        function teleportToZone(zone) {
+            if (zone === 'science') {
+                player.x = 200;
+                player.y = 250;
+            } else if (zone === 'arts') {
+                player.x = 700;
+                player.y = 250;
+            }
+        }
+
+        // 페이지 로드 시 게임 시작 및 초기 미션 모달 표시
+        window.onload = function() {
+            gameLoop();
+            // 접속 1초 후 자동으로 미션 창 표시
+            setTimeout(() => {
+                toggleMissionModal();
+            }, 500);
+        };
+    </script>
+</body>
+</html>
